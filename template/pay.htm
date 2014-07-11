@@ -1,0 +1,63 @@
+<!--{template common/header}-->
+<!--{if empty($_GET['infloat'])}-->
+<div id="pt" class="bm cl">
+	<div class="z"><a href="./" class="nvhm" title="{lang homepage}">$_G[setting][bbname]</a> <em>&rsaquo;</em> $navigation</div>
+</div>
+<div id="ct" class="wp cl">
+	<div class="mn">
+		<div class="bm bw0">
+<!--{/if}-->
+
+<form id="payform" method="post" autocomplete="off" action="{$baseScript}&mod=member&act=pay&paysubmit=yes&infloat=yes{if !empty($_GET['from'])}&from=$_GET['from']{/if}"{if !empty($_GET['infloat'])} onsubmit="ajaxpost('payform', 'return_$_GET['handlekey']', 'return_$_GET['handlekey']', 'onerror');return false;"{/if}>
+	<div class="f_c">
+		<h3 class="flb">
+			<em id="return_$_GET['handlekey']">付费订阅</em>
+			<span>
+				<!--{if !empty($_GET['infloat'])}--><a href="javascript:;" class="flbc" onclick="hideWindow('$_GET['handlekey']')" title="{lang close}">{lang close}</a><!--{/if}-->
+			</span>
+		</h3>
+		<input type="hidden" name="formhash" value="{FORMHASH}" />
+		<input type="hidden" name="referer" value="{echo dreferer()}" />
+		<input type="hidden" name="fid" value="$_G[gp_fid]" />
+		<input type="hidden" name="uid" value="$_G[gp_uid]" />
+		<!--{if !empty($_GET['infloat'])}--><input type="hidden" name="handlekey" value="$_GET['handlekey']" /><!--{/if}-->
+		<div class="c">
+			<table class="list" cellspacing="0" cellpadding="0" style="width:200px">
+				<tr>
+					<th>订阅参赛者操盘记录</th>
+					<td>&nbsp;</td>
+				</tr>
+				<tr>
+					<th valign="top">价格({$_G['setting']['extcredits'][$db_subscribecredit][title]})</th>
+					<td>$db_subscription {$_G['setting']['extcredits'][$db_subscribecredit][unit]}</td>
+				</tr>
+				<tr>
+					<th valign="top">订阅时间(月)</th>
+					<td>1</td>
+				</tr>
+				<tr>
+					<th valign="top">账户余额({$_G['setting']['extcredits'][$db_subscribecredit][title]})</th>
+					<td>$balance {$_G['setting']['extcredits'][$db_subscribecredit][unit]}</td>
+				</tr>
+			</table>
+		</div>
+	</div>
+	<div class="o pns">
+		<button type="submit" name="paysubmit" class="pn pnc" value="true"><span>{lang submit}</span></button>
+	</div>
+</form>
+
+<!--{if !empty($_GET['infloat'])}-->
+<script type="text/javascript" reload="1">
+function succeedhandle_$_GET['handlekey'](locationhref) {
+	location.href = locationhref;
+}
+</script>
+<!--{/if}-->
+
+<!--{if empty($_GET['infloat'])}-->
+		</div>
+	</div>
+</div>
+<!--{/if}-->
+<!--{template common/footer}-->
