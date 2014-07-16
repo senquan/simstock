@@ -123,6 +123,10 @@ class Ajax
 						if ( $si['stocknum_ava'] < $_G['gp_amount'] )
 						{
 							$retMsgs = '您没有足够的股票卖出';
+							
+						}else if($_G['gp_amount']> 1000000){
+						
+							$retMsgs = '交易数据异常，请联系管理员。';
 						}
 						else
 						{

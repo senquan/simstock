@@ -210,6 +210,8 @@ CREATE  TABLE pre_kfss_smlog (
   PRIMARY KEY (id)
 );
 
+ALTER TABLE  `pre_kfss_exclog` ADD  `remark` VARCHAR( 255 ) NULL AFTER  `ip` ;
+
 EOF;
 runquery($sql);
 $finish = TRUE;

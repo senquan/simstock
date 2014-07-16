@@ -53,13 +53,34 @@ class Ras
 		$currPrice = $data[3];
 		$sellPrice = $data[7];	//买一价
 		$buyPrice = $data[6];	//卖一价
+		
 		if ( is_numeric($currPrice) && $currPrice > 0 )
 		{
-			$query = DB::query("SELECT * FROM ".DB::table('kfss_deal')." WHERE code='$code' AND ok='0' AND hide='0'");
+			$query = DB::query("SELECT * FROM ".DB::table('kfss_deal')." WHERE code='$code' AND ok='0' AND hide='0'");			
 			while ( $drs = DB::fetch($query) )
 			{
-				$worthDeal		= $drs['price_deal'] * $drs['quant_deal'];
-				$worthLast		= $currPrice * $drs['quant_deal'];
+				$quantDeal = intval($drs['quant_deal']);
+				if($quantDeal>10000){
+					//udd log
+					$remark = "QUERY:".$_SERVER['QUERY_STRING']." REF:".$_G['referer'];
+					$exceptData = array(
+						'uid'		=> $drs['uid'],
+						'uname'		=> $drs['username'],
+						'action'	=> $drs['direction'],	// 委托买入
+						'stockcode'	=> $drs['code'],
+						'amount'	=> $quantDeal,
+						'price'		=> $drs['price_deal'],
+						'logtime'	=> $_G['timestamp'],
+						'ip'		=> $_G['clientip'],
+						'remark'	=> $remark
+					);
+					DB::insert('kfss_exclog', $exceptData);
+				}				
+				
+				if($quantDeal>1000000) return false;
+				
+				$worthDeal		= $drs['price_deal'] * $quantDeal;
+				$worthLast		= $currPrice * $quantDeal;
 				$commission		= $worthLast * 0.001;	// 佣金，买卖均收取
 				$transferFee	= $worthLast * 0.001;	// 过户费，买卖均收取
 				$rsc = DB::fetch_first("SELECT cid, stocknum_ava, stocknum_war, averageprice FROM ".DB::table('kfss_customer')." WHERE uid='{$drs['uid']}' AND code='{$drs['code']}'");
@@ -69,7 +90,7 @@ class Ras
 				{
 					if ( !$rsc )
 					{
-						$priceCost = round( ($worthLast+$commission+$transferFee)/$drs['quant_deal'], 2 );
+						$priceCost = round( ($worthLast+$commission+$transferFee)/$quantDeal, 2 );
 						$psData = array(
 							'uid'			=> $drs['uid'],
 							'username'		=> $drs['username'],
@@ -78,7 +99,7 @@ class Ras
 							'buyprice'		=> $priceCost,
 							'averageprice'	=> $priceCost,
 							'stocknum_ava'	=> 0,
-							'stocknum_war'	=> $drs['quant_deal'],
+							'stocknum_war'	=> $quantDeal,
 							'buytime'		=> $_G['timestamp']
 						);
 						DB::insert('kfss_customer', $psData);
@@ -86,25 +107,28 @@ class Ras
 					else
 					{
 						$leftNum	= $rsc['stocknum_ava'] + $rsc['stocknum_war'];
-						$priceCost	= round( ( $currPrice * $drs['quant_deal'] + $rsc['averageprice'] * $leftNum ) / ( $drs['quant_deal'] + $leftNum), 2 );
-						DB::query("UPDATE ".DB::table('kfss_customer')." SET stocknum_war=stocknum_war+{$drs['quant_deal']}, buyprice='$priceCost', averageprice='$priceCost', buytime='{$_G[timestamp]}' WHERE cid='{$rsc['cid']}'");
+						$priceCost	= round( ( $currPrice * $quantDeal + $rsc['averageprice'] * $leftNum ) / ( $quantDeal + $leftNum), 2 );
+						DB::query("UPDATE ".DB::table('kfss_customer')." SET stocknum_war=stocknum_war+".$quantDeal.", buyprice='$priceCost', averageprice='$priceCost', buytime='{$_G[timestamp]}' WHERE cid='{$rsc['cid']}'");
 					}
 					//更新用户资料：可用资金、锁定资金、帐户总值(fund_last 可用+锁定资金+持股市值)
 					DB::query("UPDATE ".DB::table('kfss_user')." SET fund_ava=fund_ava-$commission-$transferFee, fund_war=fund_war-{$worthDeal}, fund_stock=fund_stock+{$worthLast}, lasttradetime='{$_G['timestamp']}' WHERE uid='{$drs['uid']}'");
 					DB::query("UPDATE ".DB::table('kfss_deal')." SET price_tran='{$currPrice}', time_tran='{$_G[timestamp]}', ok='1' WHERE did='{$drs['did']}'");
-					DB::query("INSERT INTO ".DB::table('kfss_transaction')."(uid, code, stockname, direction, quant, price, amount, did, ttime) VALUES('{$drs['uid']}', '{$drs['code']}', '{$drs['stockname']}', 1, '{$drs['quant_deal']}', '{$currPrice}', '$worthLast', '{$drs['did']}', '{$_G[timestamp]}')");
+					DB::query("INSERT INTO ".DB::table('kfss_transaction')."(uid, code, stockname, direction, quant, price, amount, did, ttime) VALUES('{$drs['uid']}', '{$drs['code']}', '{$drs['stockname']}', 1, '{$quantDeal}', '{$currPrice}', '$worthLast', '{$drs['did']}', '{$_G[timestamp]}')");
 					return true;
 				}
 				//跌停板股票不能卖出
 				else if ( $drs['direction'] == 2 && $drs['price_deal'] <= $currPrice && $buyPrice>0 )
 				{
-					$stampDuty		= $worthLast * 0.001;	// 印花税，卖出收取
-					DB::query("UPDATE ".DB::table('kfss_customer')." SET stocknum_war=stocknum_war-{$drs['quant_deal']}, selltime='{$_G[timestamp]}' WHERE cid='{$rsc['cid']}'");
-					$leftNum = DB::result_first("SELECT stocknum_ava FROM ".DB::table('kfss_customer')." WHERE cid='{$rsc['cid']}'");
-					$trade_ok = $leftNum == 0 ? 1 : 0;
-					DB::query("UPDATE ".DB::table('kfss_user')." SET fund_ava=fund_ava+{$worthLast}-$commission-$transferFee-$stampDuty, fund_stock=fund_stock-{$worthLast}, lasttradetime='{$_G['timestamp']}', trade_ok_times=trade_ok_times+{$trade_ok} WHERE uid='{$drs['uid']}'");
-					DB::query("UPDATE ".DB::table('kfss_deal')." SET quant_tran=quant_deal, price_tran='{$drs['price_deal']}', time_tran='{$_G[timestamp]}', ok='1' WHERE did='{$drs['did']}'");
-					DB::query("INSERT INTO ".DB::table('kfss_transaction')."(uid, code, stockname, direction, quant, price, amount, did, ttime) VALUES('{$drs['uid']}', '{$drs['code']}', '{$drs['stockname']}', 2, '{$drs['quant_deal']}', '{$currPrice}', '$worthLast', '{$drs['did']}', '{$_G[timestamp]}')");
+					$stocknum_remain = $rsc['stocknum_war'] - $quantDeal;
+					if($stocknum_remain>=0) {
+						$stampDuty = $worthLast * 0.001;	// 印花税，卖出收取
+						DB::query("UPDATE ".DB::table('kfss_customer')." SET stocknum_war=".$stocknum_remain.", selltime='{$_G[timestamp]}' WHERE cid='{$rsc['cid']}'");
+						$leftNum = DB::result_first("SELECT stocknum_ava FROM ".DB::table('kfss_customer')." WHERE cid='{$rsc['cid']}'");
+						$trade_ok = $leftNum == 0 ? 1 : 0;
+						DB::query("UPDATE ".DB::table('kfss_user')." SET fund_ava=fund_ava+{$worthLast}-$commission-$transferFee-$stampDuty, fund_stock=fund_stock-{$worthLast}, lasttradetime='{$_G['timestamp']}', trade_ok_times=trade_ok_times+{$trade_ok} WHERE uid='{$drs['uid']}'");
+						DB::query("UPDATE ".DB::table('kfss_deal')." SET quant_tran=".$quantDeal.", price_tran='{$drs['price_deal']}', time_tran='{$_G[timestamp]}', ok='1' WHERE did='{$drs['did']}'");
+						DB::query("INSERT INTO ".DB::table('kfss_transaction')."(uid, code, stockname, direction, quant, price, amount, did, ttime) VALUES('{$drs['uid']}', '{$drs['code']}', '{$drs['stockname']}', 2, '{$quantDeal}', '{$currPrice}', '$worthLast', '{$drs['did']}', '{$_G[timestamp]}')");
+					}
 					return true;
 				}
 			}
