@@ -19,7 +19,12 @@ var u = {uid:"$m['uid']", uname:"$m['username']"};
 		<div class="bm bw0">
 			<table cellspacing="0" cellpadding="0" class="dt mtm">
 				<caption>
-					<h2 class="mbm xs2">{$m['username']} 帐户信息</h2>
+					<h2 class="mbm xs2">{$m['username']} 帐户信息 </h2>
+					<div id="nv" style="float:right">
+					<ul>
+						<li class="current"><a href="$baseScript&mod=member&act=showinfo&uid={$user_id}">持仓及交易</a></li>
+						<li><a href="$baseScript&mod=member&act=showinfo&uid={$user_id}&infotype=history">历史净值图</a></li>
+					</ul></div>
 				</caption>
 				<tr>
 					<td>初始资金：<span id="InitFund"></span></td>
@@ -49,6 +54,7 @@ var u = {uid:"$m['uid']", uname:"$m['username']"};
 			</table>
 		</div>
 <!--{/if}-->
+<!--{if !$infotype || $infotype=='default'}-->
 		<div id="holdListHd" class="bm bw0">
 			<table cellspacing="0" cellpadding="0" class="dt mtm">
 				<caption>
@@ -101,7 +107,7 @@ var u = {uid:"$m['uid']", uname:"$m['username']"};
 					<th>成交时间</th>
 				</tr>
 				<tbody>
-	<!--{loop $tdb $v}-->
+				<!--{loop $tdb $v}-->
 				<tr>
 					<td><a href="$baseScript&mod=stock&act=showinfo&code=$v[code]">{$v['code']}</a></td>
 					<td><a href="$baseScript&mod=stock&act=showinfo&code=$v[code]">{$v['stockname']}</a></td>
@@ -111,11 +117,106 @@ var u = {uid:"$m['uid']", uname:"$m['username']"};
 					<td>{$v['amount']}</td>
 					<td>{$v['ttime']}</td>
 				</tr>
-	<!--{/loop}-->
+				<!--{/loop}-->
 				</tbody>
 			</table>
 		</div>
 		<!--{/if}-->
+		
+<!--{elseif $infotype=='history'}-->
+<div id="historyChart" class="chart"></div>
+<script type="text/javascript" src="{$hkimg}js/assets/flot/jquery.flot.min.js"></script>
+<script type="text/javascript">
+	var nets = [$netsdata];
+	var ticks = [$ticksdata];
+	
+	var plot = $.plot($("#historyChart"), [{
+                data: nets,
+                label: "资金总值"
+            }], {
+				legend: {
+					show: true,
+					position: "nw"
+				},
+                series: {
+                    lines: {
+                        show: true,
+                        lineWidth: 2,
+                        fill: true,
+                        fillColor: {
+                            colors: [{opacity: 0.05}, {opacity: 0.01}]
+                        }
+                    },
+                    points: {
+                        show: true
+                    },
+                    shadowSize: 2
+                },
+                grid: {
+                    hoverable: true,
+                    clickable: true,
+                    tickColor: "#eee",
+                    borderWidth: 0
+                },
+                colors: ["#FCB322", "#A5D16C", "#FF0000"],
+                xaxis: {
+					tickFormatter: function(val) { return formTicks(val, ticks) }
+                },
+                yaxis: {
+					min: $min,
+					max: $max,
+                    ticks: $yticks,
+                    tickDecimals: 2
+                }
+            });
+	
+	function formTicks(val, ticksArr) {
+		
+		var tick = ticksArr[val];			
+		if ( tick != undefined ) {
+			tick = new Date( tick );
+			var month = tick.getMonth()+1,
+				day = tick.getDate();			
+				tick = month+'-'+day;
+		} else { tick = '' }			
+		return tick
+	}
+	
+	function showTooltip(x, y, contents) {
+		$('<div id="tooltip">' + contents + '</div>').css({
+			position: 'absolute',
+			display: 'none',
+			top: y + 5,
+			left: x + 15,
+			border: '1px solid #333',
+			padding: '4px',
+			color: '#fff',
+			'border-radius': '3px',
+			'background-color': '#333',
+			opacity: 0.80
+		}).appendTo("body").fadeIn(200);
+	}
+	
+	var previousPoint = null;
+	$("#historyChart").bind("plothover", function (event, pos, item) {
+		$("#x").text(pos.x.toFixed(2));
+		$("#y").text(pos.y.toFixed(2));
+		if (item) {
+			if (previousPoint != item.dataIndex) {
+				previousPoint = item.dataIndex;
+				$("#tooltip").remove();
+				var x = (new Date(item.datapoint[2])).toLocaleDateString(),
+					y = item.datapoint[1].toFixed(2);
+				showTooltip(item.pageX, item.pageY, "[" + x + "] "+item.series.label+":"+ y);
+			}
+		} else {
+			$("#tooltip").remove();
+			previousPoint = null;
+		}
+	});
+</script>
+<!--{elseif $infotype=='other'}-->
+<!--{/if}-->
 <script type="text/javascript" src="{$hkimg}js/main.js"></script>
 	</div>
 	<div class="appl">

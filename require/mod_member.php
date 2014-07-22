@@ -130,6 +130,50 @@ class Member
 				$tdb[] = $rst;
 			}
 		}
+		$infotype = $_G['gp_infotype'];
+		if($infotype=="history") {
+			
+			$nets = array();
+			$query = DB::query("SELECT fund_current, logtime FROM ".DB::table('kfss_fundlog')." WHERE uid='$user_id' ORDER BY logtime DESC");
+			while ( $rs = DB::fetch($query) )
+			{
+				$nets[] = $rs;
+			}
+			
+			$xticks = 30;
+			$yticks = 15;
+			$max = 0;
+			$min = 0;
+			$workday = array( 1,2,3,4,5);
+			$arrData = array();
+			$arrTicks = array();
+			$i=0;
+			krsort($nets);
+			foreach($nets as $row ) {
+				$daytime = $row['logtime'];
+				$week = date("w",$daytime);
+				if(!in_array($week,$workday)) continue;
+				$lastdaytime = $daytime*1000;
+				$arrData[] = "[".$i.", ".$row['fund_current'].", ".$lastdaytime."]";
+				$arrTicks[] = $lastdaytime;
+				$i++;
+				
+				$max = $row['fund_current'] > $max ? $row['fund_current'] : $max;
+				$min = $row['fund_current'] < $min || $min == 0 ? $row['fund_current'] : $min;
+			}
+			if($i<$xticks) {				
+				for( $i; $i<=$xticks; $i++){
+					$lastdaytime += 24 * 60 * 60 * 1000;
+					$arrData[] = "[".$i.", null, ".$lastdaytime."]";
+					$arrTicks[] = $lastdaytime;
+				}
+			}
+			$max = $max * 1.05;
+			$min = $min * 0.95;		
+			
+			$netsdata = implode( ",", $arrData);
+			$ticksdata = implode( ",", $arrTicks);	
+		}
 		include template('simstock:member_showinfo');
 	}
 	private function fundsManage( $user )

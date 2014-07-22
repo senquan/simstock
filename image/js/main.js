@@ -221,8 +221,10 @@ function mainFunction()
 	function showHoldStock()
 	{
 		//$("#holdList tbody").empty();
-		if (hold && hold.length > 0)
-			$("#holdTemplate").tmpl(hold).appendTo($("#holdList tbody"));
+		if($("#holdList tbody").length!=0){
+			if (hold && hold.length > 0)
+				$("#holdTemplate").tmpl(hold).appendTo($("#holdList tbody"));
+		}
 		processHoldStock();
 	}
 	//¹Ø×¢ÇøÓò
